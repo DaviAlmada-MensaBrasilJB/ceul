@@ -1,6 +1,7 @@
 // Davi "Genetyn" Almada (LITERALSTRING) - 2026
 // The Ceul Programming Language Official first CLI Interpreter
 
+// Only reusable code is still commented
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -26,7 +27,7 @@ typedef struct {
     void (*function)(int argc, string argv[]);
 } token;
 
-// desistemo.
+// later.
 // typedef struct {
 //     void (*function)(void);
 // } methods;
@@ -37,11 +38,6 @@ typedef struct {
 //     void* (*constructor)(int argc, string argv[]);
 //     const methods* m;
 // } Class;
-
-// faze isso n
-// typedef struct{
-//     token* super;
-// }literalstring;
 
 // ---------------[UTILS]---------------
 // Cool function for adding \n to the end of texts, mind that it doesn't accept other arguments.
@@ -92,15 +88,7 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
             if(!separated){
                 str[c] = '\0';
             }else{
-                // printf(
-                //     "ANTES DO MOVE: c=%zu size=%zu debounce=%d word=%zu wpos=%d str=[%s]\n",
-                //     c, size, debounce, word, wpos, str
-                // );
                 strmoveb(str, c, &size);
-                // printf(
-                //     "DEPOIS DO MOVE: c=%zu size=%zu debounce=%d word=%zu wpos=%d str=[%s]\n",
-                //     c, size, debounce, word, wpos, str
-                // );
                 c--;
                 continue;
             }
@@ -110,15 +98,7 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
             if(!separated){
                 str[c] = '\0';
             }else{
-                // printf(
-                //     "ANTES DO MOVE: c=%zu size=%zu debounce=%d word=%zu wpos=%d str=[%s]\n",
-                //     c, size, debounce, word, wpos, str
-                // );
                 strmoveb(str, c, &size);
-                // printf(
-                //     "DEPOIS DO MOVE: c=%zu size=%zu debounce=%d word=%zu wpos=%d str=[%s]\n",
-                //     c, size, debounce, word, wpos, str
-                // );
                 c--;
                 continue;
             }
@@ -133,23 +113,12 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
         }
         if(str[c] == '"'){
             is_string = !is_string;
-            // printf(
-            //     "ANTES DO MOVE: c=%zu size=%zu debounce=%d word=%zu wpos=%d str=[%s]\n",
-            //     c, size, debounce, word, wpos, str
-            // );
             strmoveb(str, c, &size);
-            // printf(
-            //     "DEPOIS DO MOVE: c=%zu size=%zu debounce=%d word=%zu wpos=%d str=[%s]\n",
-            //     c, size, debounce, word, wpos, str
-            // );
             c--; // lowers "C" so it repeats the loop with the same letter and processes the pushed character.
             // and if "C" is 0 it will just be the maximum possible value(SIZE_MAX; long long type), then it will be c = 0 after the "c++;".
             //size = strlen(str); // changes size so the loop doesn't acess NULL data in the new string.
             continue;
         }
-        // printf("c=%zu size=%zu debounce=%d word=%zu wpos=%d char=[%c]\n",
-        //     c, size, debounce, word, wpos, str[c]);
-        // printf("STR=[%s]\n", str);
         dbuffer[word][wpos++] = str[c];//(c < size && c >= debounce)?
         //     c - debounce
         //     : 0];
@@ -175,12 +144,6 @@ void ceul_close(int argc, string argv[]){
 }
 
 void ceul_clear(int argc, string argv[]){
-    // if(strcmp(argv[0], "w")){
-    //     system("cls");
-    // }else{
-    //     system("clear");
-    // }
-
     #ifdef _WIN32
         system("cls");
     #else
@@ -194,9 +157,7 @@ int main(int argc, char *argv[]){
     char cache[KB]; // Code cache; saves the written code.
     char buffer[KB]; // Saves a limited amount of text data up to one kilobyte.
     char dbuffer[KB][MAX_SIZE]; // same as the buffer, but saves strings in an array. doublebuffer-
-    // No, or 65.536(1024 * 64) Bytes will be wasted.
     // TODO: "How to make dbuffer waste dynamically?"
-    // No, stroke() needs it, i'm here for it.
 
     string lbuffer[MAX_SIZE]; // almost the same as buffer, but saves only pointers up to 64 bytes. Lilbuffer
 
@@ -232,15 +193,9 @@ int main(int argc, char *argv[]){
         stroke(buffer, dbuffer, &counter);
         dbufferToLbuffer(dbuffer, lbuffer, counter);
 
-        // chatgpt debug thing
-        // for(int i = 0; i < counter; i++){
-        //     printf("TOKEN %d: [%s]\n", i, lbuffer[i]);
-        // }
-
         if(counter <= 0){ continue; }
         for(int i = 0; i < (sizeof(std_commands) / sizeof(std_commands[0])); i++){ // runs through the std_commands.
             if(strcmp(lbuffer[0], std_commands[i].value) == 0){ // checks if it is a valid command
-                //printf("%s", &std_commands[i].value); // debugging rn
                 valid_flag = true;
                 std_commands[i].function(counter, lbuffer); // executes da function
             }
