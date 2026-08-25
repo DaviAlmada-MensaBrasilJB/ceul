@@ -5,7 +5,7 @@ CEUL stands for **Computationally Efficient Universal Language**, which is a pro
 Currently, it's still a concept, because the C interpreter is still like this:
 ```
 CEUL
-> write Hello, world!
+> write "Hello, world!"
 Hello, world!
 ```
 ## Code examples
