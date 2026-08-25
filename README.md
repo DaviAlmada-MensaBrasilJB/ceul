@@ -28,22 +28,22 @@ gcc src/main.c -o build/main
 ```
 ## Available commands
 ### Write
-Works as "print()". Outputs a string of text.
+Works like `print()`. Outputs a string of text.
 #### Use:
 ```
->write "String of text"
+> write "String of text"
 ```
 ### Clear
 Clears the terminal.
 #### Use:
 ```
->clear
+> clear
 ```
 ### Exit
 Terminates the CEUL interpreter without closing the terminal.
 #### Use:
 ```
->exit
+> exit
 ```
 ## Implemented
 - [x] Strings
