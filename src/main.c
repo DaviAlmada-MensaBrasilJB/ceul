@@ -208,7 +208,7 @@ int main(int argc, char *argv[]){
     };
 
     //do_intro(); // enable whenever you want
-    println("CEUL v(-1)\n");
+    println("CEUL v0.0.1\n");
 
     // main loop
     while (true){
