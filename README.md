@@ -4,7 +4,7 @@ An open-source, lightweight, fast and practical C-like programming language, wit
 CEUL stands for **Computationally Efficient Universal Language**, which is a programming language written entirely in C designed to be fast, simple and lightweight for programmers of all skill levels.
 > Currently, CEUL is still in early development, so most of its features, like the syntax, are subject to change:
 ```
-CEUL v0.0.1
+CEUL v0.0.2
 > write "Hello, world!"
 Hello, world!
 ```
@@ -29,9 +29,14 @@ gcc src/main.c -o build/main
 ## Available commands
 ### Write
 Works like `print()`. Outputs a string of text.
-#### Use:
+#### Args:
 ```
-> write "String of text"
+> write <string of text(surrounded by quotes)>
+```
+#### Example:
+```
+> write "Hello"
+Hello
 ```
 ### Clear
 Clears the terminal.
@@ -45,12 +50,27 @@ Terminates the CEUL interpreter without closing the terminal.
 ```
 > exit
 ```
+### Loop
+Executes a command multiple times with a `for` loop.
+#### Args:
+```
+> loop <start INT> <end INT> <step INT> <command>
+```
+#### Example:
+```
+> loop 0 10 1 write "Hello"
+Hello
+Hello
+...
+```
 ## Implemented
 - [x] Strings
 - [x] CLI
 - [x] `write`
 - [x] `exit`
 - [x] `clear`
+- [x] `loop`
+- [ ] While and Do While loops
 - [ ] Variables
 - [ ] Arithmetic operations
 - [ ] Conditions

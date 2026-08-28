@@ -21,11 +21,22 @@ typedef enum {
     COMMENT,
 } tokenType;
 
-typedef struct {
+typedef struct token{
     const string value;
+    const int args;
     tokenType type;
-    void (*function)(int argc, string argv[]);
+    void (*function)(int argc, string argv[], size_t place, struct token *commands, size_t command_count);
 } token;
+
+// token tokonstructor(){
+    
+// }
+
+typedef enum{
+    NOSTRINGLITERAL,
+    INVALIDCOMMAND,
+    
+} errorType;
 
 // later.
 // typedef struct {
@@ -46,6 +57,8 @@ void println(string text){
     printf("\n");
 }
 
+// void send_error(er)
+
 // never remove this
 void do_intro(){
     println("\"Hello, im a guy that likes programming in C because C++ is a little too bad and difficult.");
@@ -55,6 +68,29 @@ void do_intro(){
     println("Yeah, I made an entire function for an introduction to myself, it's mostly disabled, but im debbuging.");
     println("UPDATE: I BOUGHT ONESHOT!! (YAY!) 17/08/2026(DD/MM/YYYY)");
     println("Thank you so much for your attention.\"\n-Davi \"Genetyn\" Almada (LITERALSTRING)");
+}
+
+void scan_commands(int counter, token std_commands[], size_t command_count, string lbuffer[], int start, int end){
+    size_t err_index = 0;
+    size_t index = 0;
+    for(int i = start; i < end; i++){ // runs through the tokens.
+        bool valid = false;
+        for(int j = 0; j < command_count /*(sizeof(lbuffer) / sizeof(lbuffer[0]))*/; j++){
+            if(strcmp(lbuffer[i], std_commands[j].value) == 0){ // checks if it is a valid command
+                valid = true;
+                std_commands[j].function(counter, lbuffer, i, std_commands, command_count); // executes da function
+                index = j;
+                break;
+            }else{
+                err_index = i;
+            }
+        }
+        if(valid){
+            i += std_commands[index].args;
+        }else{
+            printf("\a[ERR][INDEX=%d]: Command \"%s\" not recognized\n", i, lbuffer[err_index]);// still working for the send_error() function
+        }
+    }
 }
 
 // changes the string pushing it backwards
@@ -111,7 +147,7 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
             wpos = 0;
             continue;
         }
-        if(str[c] == '"'){
+        if(str[c] == '"' || str[c] == '\''){
             is_string = !is_string;
             strmoveb(str, c, &size);
             c--; // lowers "C" so it repeats the loop with the same letter and processes the pushed character.
@@ -119,36 +155,91 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
             //size = strlen(str); // changes size so the loop doesn't acess NULL data in the new string.
             continue;
         }
+        if(str[c] == '\\' && c + 1 < size && is_string){
+            // switch (expression)
+            // {
+            // case constant expression:
+            //     /* code */
+            //     break;
+            
+            // default:
+            //     break;
+            // }
+            bool valid_escape = true;
+            switch(str[c + 1]){
+                case 'n': str[c] = '\n'; break;
+                case 't': str[c] = '\t'; break;
+                case 'r': str[c] = '\r'; break;
+                case 'v': str[c] = '\v'; break;
+                case '\\': str[c] = '\\'; break;
+                case '\'': str[c] = '\''; break;
+                case '"': str[c] = '\"'; break;
+                case 'b': str[c] = '\b'; break;
+                
+                default:
+                    valid_escape = false;
+            }
+            if(!valid_escape){
+                printf("[ERR]: Escape not valid: \"\\%c\"", str[c + 1]);
+                continue;
+            }
+            strmoveb(str, c + 1, &size);
+            continue;
+        }
         dbuffer[word][wpos++] = str[c];//(c < size && c >= debounce)?
         //     c - debounce
         //     : 0];
         separated = false;
     }
+    if(is_string){
+        printf("[WARN]: String literal was not closed\n");
+    }
     *counter = word;
 }
 
 // ---------------[COMMANDS]---------------
-void ceul_write(int argc, string argv[]){
-    for(int i = 1; i < argc; i++){
-        fprintf(OUT, "%s", argv[i]);
+void ceul_write(int argc, string argv[], size_t place, token commands[], size_t command_count){
+    fprintf(OUT, "%s", argv[place + 1]);
+    // for(int i = place + commands[0].args; i < argc; i++){
 
-        if(i < (argc - 1)){
-            fprintf(OUT, " ");
-        }
-    }
+    //     // if(i < (argc - 1)){
+    //     //     fprintf(OUT, " ");
+    //     // }
+    // }
     fprintf(OUT, "\n");
 }
 
-void ceul_close(int argc, string argv[]){
+void ceul_close(int argc, string argv[], size_t place, token commands[], size_t command_count){
     exit(0);
 }
 
-void ceul_clear(int argc, string argv[]){
+void ceul_clear(int argc, string argv[], size_t place, token commands[], size_t command_count){
     #ifdef _WIN32
         system("cls");
     #else
         system("clear");
     #endif
+}
+
+void ceul_loop(int argc, string argv[], size_t place, token commands[], size_t command_count){
+    size_t start = atoi(argv[place + 1]);
+    size_t end = atoi(argv[place + 2]);
+    size_t step = atoi(argv[place + 3]);
+    size_t iterations = 0;
+
+    if(step == 0){
+        printf("[ERR]: Step cannot be 0\n");
+        return;
+    }
+
+    for (size_t i = start; i < end; i += step){
+        if(iterations >= 50){
+            printf("[WARN]: Loop blocked by maximum 50 iterations\n");
+            break;
+        }
+        scan_commands(argc, commands, command_count, argv, place + 4, argc);
+        iterations++;
+    }
 }
 
 // ---------------[main]---------------
@@ -162,14 +253,16 @@ int main(int argc, char *argv[]){
     string lbuffer[MAX_SIZE]; // almost the same as buffer, but saves only pointers up to 64 bytes. Lilbuffer
 
     token std_commands[] = {
-        {"write", STDFUNCTIONCALL, ceul_write},
-        {"exit", STDFUNCTIONCALL, ceul_close},
-        {"clear", STDFUNCTIONCALL,  ceul_clear},
+        {"write", 1, STDFUNCTIONCALL, ceul_write},
+        {"exit", 0, STDFUNCTIONCALL, ceul_close},
+        {"clear", 0, STDFUNCTIONCALL,  ceul_clear},
+        {"loop", 3, STDFUNCTIONCALL, ceul_loop}
         //{"//", COMMENT, NULL},
     };
+    size_t command_count = sizeof(std_commands) / sizeof(std_commands[0]);
 
     //do_intro(); // enable whenever you want
-    println("CEUL v0.0.1\n");
+    println("CEUL v0.0.2\nDocumentation in README.md at:\nhttps://github.com/DaviAlmada-MensaBrasilJB/ceul\n");
 
     // main loop
     while (true){
@@ -194,15 +287,18 @@ int main(int argc, char *argv[]){
         dbufferToLbuffer(dbuffer, lbuffer, counter);
 
         if(counter <= 0){ continue; }
-        for(int i = 0; i < (sizeof(std_commands) / sizeof(std_commands[0])); i++){ // runs through the std_commands.
-            if(strcmp(lbuffer[0], std_commands[i].value) == 0){ // checks if it is a valid command
-                valid_flag = true;
-                std_commands[i].function(counter, lbuffer); // executes da function
-            }
-        }
-        if(counter > 0 && !valid_flag){
-            printf("[ERR]: Command \"%s\" not reconized\n", lbuffer[0]);
-        }
+        // for(int i = 0; i < (sizeof(std_commands) / sizeof(std_commands[0])); i++){ // runs through the std_commands.
+        //     for(int j = 0; j < (sizeof(lbuffer) / sizeof(lbuffer[0])); j++){
+        //         if(strcmp(lbuffer[j], std_commands[i].value) == 0){ // checks if it is a valid command
+        //             valid_flag = true;
+        //             std_commands[i].function(counter, lbuffer, i, std_commands); // executes da function
+        //         }
+        //         if(!valid_flag){
+        //             printf("[ERR]: Command \"%s\" not reconized\n", lbuffer[j]);
+        //         }
+        //     }
+        // }
+        scan_commands(counter, std_commands, command_count, lbuffer, 0, counter);
     }
     return 0;
 }
