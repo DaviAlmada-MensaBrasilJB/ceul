@@ -260,9 +260,9 @@ void ceul_clear(size_t, string[], size_t, token[], size_t){
 }
 
 void ceul_loop(size_t argc, string argv[], size_t place, token commands[], size_t command_count){
-    size_t start = (size_t)atoi(argv[place + 1]);
-    size_t end = (size_t)atoi(argv[place + 2]);
-    size_t step = (size_t)atoi(argv[place + 3]);
+    long start = strtol(argv[place + 1], NULL, 10);
+    long end = strtol(argv[place + 2], NULL, 10);
+    long step = strtol(argv[place + 3], NULL, 10);
     size_t iterations = 0;
 
     if(step == 0){
