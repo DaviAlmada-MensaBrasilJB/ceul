@@ -7,9 +7,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+    #include <windows.h>
+#else
+    #include <time.h>
+#endif
+
 #define MAX_SIZE 64
 #define KB 1024
-#define OUT stdout
+//#define OUT stdout
 
 typedef char * string;
 
@@ -19,13 +25,14 @@ typedef enum {
     VARIABLEDECLARATION,
     LITERALSTRING, //Uff, referências
     COMMENT,
+    KEYWORD,
 } tokenType;
 
 typedef struct token{
     const string value;
-    const int args;
+    const size_t args;
     tokenType type;
-    void (*function)(int argc, string argv[], size_t place, struct token *commands, size_t command_count);
+    void (*function)(size_t argc, string argv[], size_t place, struct token *commands, size_t command_count);
 } token;
 
 // token tokonstructor(){
@@ -70,12 +77,12 @@ void do_intro(){
     println("Thank you so much for your attention.\"\n-Davi \"Genetyn\" Almada (LITERALSTRING)");
 }
 
-void scan_commands(int counter, token std_commands[], size_t command_count, string lbuffer[], int start, int end){
+void scan_commands(size_t counter, token std_commands[], size_t command_count, string lbuffer[], size_t start, size_t end){
     size_t err_index = 0;
     size_t index = 0;
-    for(int i = start; i < end; i++){ // runs through the tokens.
+    for(size_t i = start; i < end; i++){ // runs through the tokens.
         bool valid = false;
-        for(int j = 0; j < command_count /*(sizeof(lbuffer) / sizeof(lbuffer[0]))*/; j++){
+        for(size_t j = 0; j < command_count /*(sizeof(lbuffer) / sizeof(lbuffer[0]))*/; j++){
             if(strcmp(lbuffer[i], std_commands[j].value) == 0){ // checks if it is a valid command
                 valid = true;
                 std_commands[j].function(counter, lbuffer, i, std_commands, command_count); // executes da function
@@ -88,7 +95,7 @@ void scan_commands(int counter, token std_commands[], size_t command_count, stri
         if(valid){
             i += std_commands[index].args;
         }else{
-            printf("\a[ERR][INDEX=%d]: Command \"%s\" not recognized\n", i, lbuffer[err_index]);// still working for the send_error() function
+            printf("\a[ERR][INDEX=%zu]: Command \"%s\" not recognized\n", i, lbuffer[err_index]);// still working for the send_error() function
         }
     }
 }
@@ -101,15 +108,15 @@ void strmoveb(string str, size_t current, size_t *size){
     (*size)--;
 }
 
-void dbufferToLbuffer(char dbuffer[][MAX_SIZE], string lbuffer[], int counter){
-    for(int i = 0; i < counter; i++){
+void dbufferToLbuffer(char dbuffer[][MAX_SIZE], string lbuffer[], size_t counter){
+    for(size_t i = 0; i < counter; i++){
         lbuffer[i] = dbuffer[i];
     }
 }
 
 // strtok but it has a(n) (eletrical) stroke
 // still working cuz its hard asf
-void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
+void stroke(string str, char dbuffer[][MAX_SIZE], size_t *counter){
     size_t size = strlen(str);
     bool is_string = false;
     bool separated = false; // tells if the string's spaces are already '\0' characters
@@ -117,8 +124,8 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
     //                                           ^    ^
     //                                         true  false
     size_t word = 0;
-    int debounce = 0; // a sign so the code works.
-    int wpos = 0;
+    //int debounce = 0; // a sign so the code works.
+    size_t wpos = 0;
     for(size_t c = 0; c < size; c++){
         if(str[c] == ' ' && !is_string){
             if(!separated){
@@ -141,8 +148,12 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
             separated = !separated;
         }
         if(str[c] == '\0'){
+            if (word >= KB) {
+                printf("[ERR]: Too many tokens in one line\n");
+                return;
+            }
             dbuffer[word][wpos] = '\0';
-            debounce = c + 1;
+            // debounce = c + 1;
             word++;
             wpos = 0;
             continue;
@@ -175,6 +186,7 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
                 case '\'': str[c] = '\''; break;
                 case '"': str[c] = '\"'; break;
                 case 'b': str[c] = '\b'; break;
+                case 'a': str[c] = '\a'; break;
                 
                 default:
                     valid_escape = false;
@@ -184,7 +196,10 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
                 continue;
             }
             strmoveb(str, c + 1, &size);
-            continue;
+        }
+        if (wpos >= MAX_SIZE - 1) {
+            printf("[ERR]: Token exceeds maximum length of %d characters\n", MAX_SIZE - 1);
+            return;
         }
         dbuffer[word][wpos++] = str[c];//(c < size && c >= debounce)?
         //     c - debounce
@@ -194,26 +209,49 @@ void stroke(string str, char dbuffer[][MAX_SIZE], int *counter){
     if(is_string){
         printf("[WARN]: String literal was not closed\n");
     }
+
+    if(wpos > 0){
+        dbuffer[word][wpos] = '\0';
+        word++;
+    }
+
     *counter = word;
 }
 
+void sleep_ms(unsigned int ms){
+    #ifdef _WIN32
+        Sleep(ms);
+    #else
+        struct timespec timer = {
+            ms / 1000,
+            (ms % 1000) * 1000000
+        };
+        nanosleep(&timer, NULL);
+    #endif
+}
+
 // ---------------[COMMANDS]---------------
-void ceul_write(int argc, string argv[], size_t place, token commands[], size_t command_count){
-    fprintf(OUT, "%s", argv[place + 1]);
+void ceul_write(size_t, string argv[], size_t place, token[], size_t){
+    printf("%s", argv[place + 1]);
+    // printf("LEN = %zu\n", strlen(argv[place + 1]));
+
+    // for(size_t i = 0; argv[place + 1][i] != '\0'; i++){
+    //     printf("[%zu] = %d\n", i, (unsigned char)argv[place + 1][i]);
+    // }
     // for(int i = place + commands[0].args; i < argc; i++){
 
     //     // if(i < (argc - 1)){
     //     //     fprintf(OUT, " ");
     //     // }
     // }
-    fprintf(OUT, "\n");
+    //fprintf(OUT, "\n");
 }
 
-void ceul_close(int argc, string argv[], size_t place, token commands[], size_t command_count){
+void ceul_close(size_t, string[], size_t, token[], size_t){
     exit(0);
 }
 
-void ceul_clear(int argc, string argv[], size_t place, token commands[], size_t command_count){
+void ceul_clear(size_t, string[], size_t, token[], size_t){
     #ifdef _WIN32
         system("cls");
     #else
@@ -221,10 +259,10 @@ void ceul_clear(int argc, string argv[], size_t place, token commands[], size_t 
     #endif
 }
 
-void ceul_loop(int argc, string argv[], size_t place, token commands[], size_t command_count){
-    size_t start = atoi(argv[place + 1]);
-    size_t end = atoi(argv[place + 2]);
-    size_t step = atoi(argv[place + 3]);
+void ceul_loop(size_t argc, string argv[], size_t place, token commands[], size_t command_count){
+    size_t start = (size_t)atoi(argv[place + 1]);
+    size_t end = (size_t)atoi(argv[place + 2]);
+    size_t step = (size_t)atoi(argv[place + 3]);
     size_t iterations = 0;
 
     if(step == 0){
@@ -242,33 +280,42 @@ void ceul_loop(int argc, string argv[], size_t place, token commands[], size_t c
     }
 }
 
+void ceul_sleep(size_t, string argv[], size_t place, token[], size_t){
+    sleep_ms((unsigned int)atoi(argv[place + 1]));
+}
+
 // ---------------[main]---------------
-int main(int argc, char *argv[]){
-    char command[MAX_SIZE];
+int main(int, char*[]){
+    //char command[MAX_SIZE];
     char cache[KB]; // Code cache; saves the written code.
     char buffer[KB]; // Saves a limited amount of text data up to one kilobyte.
     char dbuffer[KB][MAX_SIZE]; // same as the buffer, but saves strings in an array. doublebuffer-
     // TODO: "How to make dbuffer waste dynamically?"
 
-    string lbuffer[MAX_SIZE]; // almost the same as buffer, but saves only pointers up to 64 bytes. Lilbuffer
+    string lbuffer[KB]; // almost the same as buffer, but saves only pointers up to 64 bytes. Lilbuffer
 
     token std_commands[] = {
         {"write", 1, STDFUNCTIONCALL, ceul_write},
         {"exit", 0, STDFUNCTIONCALL, ceul_close},
         {"clear", 0, STDFUNCTIONCALL,  ceul_clear},
-        {"loop", 3, STDFUNCTIONCALL, ceul_loop}
+        {"loop", 3, KEYWORD, ceul_loop},
+        {"sleep", 1, STDFUNCTIONCALL, ceul_sleep}
         //{"//", COMMENT, NULL},
     };
     size_t command_count = sizeof(std_commands) / sizeof(std_commands[0]);
 
+    // Secret loading bar command:
+    /* write "[-----]\r" sleep 3000 write "[#----]\r" sleep 3000 write "[##---]\r" sleep 3000 write "[###--]\r"
+    sleep 3000 write "[####-]\r" sleep 3000 write "[#####]\n" write "Complete!"*/
+
     //do_intro(); // enable whenever you want
-    println("CEUL v0.0.2\nDocumentation in README.md at:\nhttps://github.com/DaviAlmada-MensaBrasilJB/ceul\n");
+    println("CEUL v0.0.3-alpha.2\nDocumentation in README.md at:\nhttps://github.com/DaviAlmada-MensaBrasilJB/ceul \n");
 
     // main loop
     while (true){
-        bool valid_flag = false;
-        int counter = 0; // resets the argument counter
-        printf("> "); // cursor
+        //bool valid_flag = false;
+        size_t counter = 0; // resets the argument counter
+        printf("\n> "); // cursor
         fgets(cache, sizeof(cache), stdin); // reads
 
         string comment = strstr(cache, "//");

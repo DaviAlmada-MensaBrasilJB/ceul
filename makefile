@@ -6,6 +6,18 @@ end_file = main.exe
 linux_end_file = main
 user = DILSON SOUZA
 
+gmode = normal
+
+ifeq ($(gmode), pedantic)
+	FLAGS = -Wall -Wextra -Wpedantic
+else
+	ifeq ($(gmode), all)
+		FLAGS = -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion
+	else
+		FLAGS =
+	endif
+endif
+
 .PHONY: all ccr compile run clean alll ccrl compilel runl cleanl deploy commit push add depsource
 
 # ---------------- Windows ----------------
@@ -16,7 +28,7 @@ ccr: clean compile run
 
 compile:
 	@if not exist $(build_dir) mkdir $(build_dir)
-	gcc ./$(source)/$(start_file) -o ./$(build_dir)/windows/$(end_file)
+	gcc ./$(source)/$(start_file) $(FLAGS) -o ./$(build_dir)/windows/$(end_file)
 
 run:
 	$(build_dir)\windows\$(end_file)
