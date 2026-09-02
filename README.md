@@ -50,6 +50,12 @@ Terminates the CEUL interpreter without closing the terminal.
 ```
 > exit
 ```
+### Sleep
+Waits the recived time before continuing.
+#### Use:
+```
+> sleep <wait time(in miliseconds)>
+```
 ### Loop
 Executes a command multiple times with a `for` loop.
 #### Args:
@@ -70,6 +76,7 @@ Hello
 - [x] `exit`
 - [x] `clear`
 - [x] `loop`
+- [x] `sleep`
 - [ ] While and Do While loops
 - [ ] Variables
 - [ ] Arithmetic operations

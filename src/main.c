@@ -42,7 +42,8 @@ typedef struct token{
 typedef enum{
     NOSTRINGLITERAL,
     INVALIDCOMMAND,
-    
+    OUTOFSPACE,
+    INSUFFICIENTARGS,
 } errorType;
 
 // later.
@@ -116,7 +117,7 @@ void dbufferToLbuffer(char dbuffer[][MAX_SIZE], string lbuffer[], size_t counter
 
 // strtok but it has a(n) (eletrical) stroke
 // still working cuz its hard asf
-void stroke(string str, char dbuffer[][MAX_SIZE], size_t *counter){
+void stroke(string str, char (**dbuffer)[MAX_SIZE], size_t *counter, size_t *capacity){
     size_t size = strlen(str);
     bool is_string = false;
     bool separated = false; // tells if the string's spaces are already '\0' characters
@@ -147,12 +148,26 @@ void stroke(string str, char dbuffer[][MAX_SIZE], size_t *counter){
             }
             separated = !separated;
         }
+
+        if(word >= *capacity){
+            size_t ncapacity = *capacity * 2;
+            char (*new_buffer)[MAX_SIZE] = realloc(*dbuffer, ncapacity * sizeof(**dbuffer));
+            
+            if(new_buffer == NULL){
+                fprintf(stderr, "[ERR]:  Out of memory");
+                return;
+            }
+            *capacity *= 2;
+
+            (*dbuffer) = new_buffer;
+        }
+
         if(str[c] == '\0'){
             if (word >= KB) {
                 printf("[ERR]: Too many tokens in one line\n");
                 return;
             }
-            dbuffer[word][wpos] = '\0';
+            (*dbuffer)[word][wpos] = '\0';
             // debounce = c + 1;
             word++;
             wpos = 0;
@@ -201,7 +216,7 @@ void stroke(string str, char dbuffer[][MAX_SIZE], size_t *counter){
             printf("[ERR]: Token exceeds maximum length of %d characters\n", MAX_SIZE - 1);
             return;
         }
-        dbuffer[word][wpos++] = str[c];//(c < size && c >= debounce)?
+        (*dbuffer)[word][wpos++] = str[c];//(c < size && c >= debounce)?
         //     c - debounce
         //     : 0];
         separated = false;
@@ -211,14 +226,14 @@ void stroke(string str, char dbuffer[][MAX_SIZE], size_t *counter){
     }
 
     if(wpos > 0){
-        dbuffer[word][wpos] = '\0';
+        (*dbuffer)[word][wpos] = '\0';
         word++;
     }
 
     *counter = word;
 }
 
-void sleep_ms(unsigned int ms){
+void sleep_ms(unsigned long ms){
     #ifdef _WIN32
         Sleep(ms);
     #else
@@ -233,6 +248,7 @@ void sleep_ms(unsigned int ms){
 // ---------------[COMMANDS]---------------
 void ceul_write(size_t, string argv[], size_t place, token[], size_t){
     printf("%s", argv[place + 1]);
+    fflush(stdout);
     // printf("LEN = %zu\n", strlen(argv[place + 1]));
 
     // for(size_t i = 0; argv[place + 1][i] != '\0'; i++){
@@ -270,7 +286,7 @@ void ceul_loop(size_t argc, string argv[], size_t place, token commands[], size_
         return;
     }
 
-    for (size_t i = start; i < end; i += step){
+    for (long i = start; (step > 0 && i <= end) || (step < 0 && i >= end); i += step){
         if(iterations >= 50){
             printf("[WARN]: Loop blocked by maximum 50 iterations\n");
             break;
@@ -281,7 +297,7 @@ void ceul_loop(size_t argc, string argv[], size_t place, token commands[], size_
 }
 
 void ceul_sleep(size_t, string argv[], size_t place, token[], size_t){
-    sleep_ms((unsigned int)atoi(argv[place + 1]));
+    sleep_ms(strtoul(argv[place + 1], NULL, 10));
 }
 
 // ---------------[main]---------------
@@ -289,10 +305,20 @@ int main(int, char*[]){
     //char command[MAX_SIZE];
     char cache[KB]; // Code cache; saves the written code.
     char buffer[KB]; // Saves a limited amount of text data up to one kilobyte.
-    char dbuffer[KB][MAX_SIZE]; // same as the buffer, but saves strings in an array. doublebuffer-
-    // TODO: "How to make dbuffer waste dynamically?"
 
-    string lbuffer[KB]; // almost the same as buffer, but saves only pointers up to 64 bytes. Lilbuffer
+    size_t dbuffcap = 16;
+    char (*dbuffer)[MAX_SIZE] = malloc(dbuffcap * sizeof(*dbuffer)); // same as the buffer, but saves strings in an array. doublebuffer-
+    
+    if(dbuffer == NULL){
+        //stfuandmakeitwork(dbuffer);
+        fprintf(stderr,"[ERR]: Out of memory for DBUFFER");
+        return 1;
+    }
+    // TODO: "How to make dbuffer waste dynamically?"
+    // TODO COMPLETE!!
+
+    size_t lbuffcap = 16;
+    string *lbuffer = malloc(lbuffcap * sizeof(*lbuffer));; // almost the same as buffer, but saves only pointers up to 64 bytes. Lilbuffer
 
     token std_commands[] = {
         {"write", 1, STDFUNCTIONCALL, ceul_write},
@@ -309,7 +335,7 @@ int main(int, char*[]){
     sleep 3000 write "[####-]\r" sleep 3000 write "[#####]\n" write "Complete!"*/
 
     //do_intro(); // enable whenever you want
-    println("CEUL v0.0.3-alpha.2\nDocumentation in README.md at:\nhttps://github.com/DaviAlmada-MensaBrasilJB/ceul \n");
+    println("CEUL v0.0.3-beta\nDocumentation in README.md at:\nhttps://github.com/DaviAlmada-MensaBrasilJB/ceul \n");
 
     // main loop
     while (true){
@@ -330,7 +356,29 @@ int main(int, char*[]){
         //     lbuffer[counter++] = token_ptr; // writes to lbuffer
         //     token_ptr = strtok(NULL, " \t\r\n"); // updates the token
         // }
-        stroke(buffer, dbuffer, &counter);
+        stroke(buffer, &dbuffer, &counter, &dbuffcap);
+
+        if (counter > lbuffcap) {
+            size_t new_capacity = lbuffcap;
+
+            while (new_capacity < counter) {
+                new_capacity *= 2;
+            }
+
+            string *new_lbuffer =
+                realloc(lbuffer, new_capacity * sizeof(*lbuffer));
+
+            if (new_lbuffer == NULL) {
+                fprintf(stderr, "[ERR]: Out of memory for LBUFFER\n");
+                free(lbuffer);
+                free(dbuffer);
+                return 1;
+            }
+
+            lbuffer = new_lbuffer;
+            lbuffcap = new_capacity;
+        }
+
         dbufferToLbuffer(dbuffer, lbuffer, counter);
 
         if(counter <= 0){ continue; }
@@ -347,5 +395,7 @@ int main(int, char*[]){
         // }
         scan_commands(counter, std_commands, command_count, lbuffer, 0, counter);
     }
+    free(lbuffer);
+    free(dbuffer);
     return 0;
 }
