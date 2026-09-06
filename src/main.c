@@ -101,7 +101,7 @@ void scan_commands(size_t counter, token std_commands[], size_t command_count, s
     }
 }
 
-// changes the string pushing it backwards
+// changes the string pushing it backwards one character
 void strmoveb(string str, size_t current, size_t *size){
     for(size_t i = current; i < *size; i++){
         str[i] = str[i + 1]; // pushes every character of the string backwards.
@@ -124,10 +124,19 @@ void stroke(string str, char (**dbuffer)[MAX_SIZE], size_t *counter, size_t *cap
     // so "Hello   world!" doesn't become "Hello\0\0\0world!\0"
     //                                           ^    ^
     //                                         true  false
+    
+    // for n strings
+    bool no_escape = false;
     size_t word = 0;
     //int debounce = 0; // a sign so the code works.
     size_t wpos = 0;
     for(size_t c = 0; c < size; c++){
+        if(c + 1 < size && str[c] == 'n' && str[c + 1] == '"'){
+            strmoveb(str, c, &size);
+            no_escape = true;
+            c--;
+            continue;
+        }
         if(str[c] == ' ' && !is_string){
             if(!separated){
                 str[c] = '\0';
@@ -154,7 +163,7 @@ void stroke(string str, char (**dbuffer)[MAX_SIZE], size_t *counter, size_t *cap
             char (*new_buffer)[MAX_SIZE] = realloc(*dbuffer, ncapacity * sizeof(**dbuffer));
             
             if(new_buffer == NULL){
-                fprintf(stderr, "[ERR]:  Out of memory");
+                fprintf(stderr, "[IERR]: Out of memory");
                 return;
             }
             *capacity *= 2;
@@ -174,6 +183,9 @@ void stroke(string str, char (**dbuffer)[MAX_SIZE], size_t *counter, size_t *cap
             continue;
         }
         if(str[c] == '"' || str[c] == '\''){
+            if(is_string){
+                no_escape = false;
+            }
             is_string = !is_string;
             strmoveb(str, c, &size);
             c--; // lowers "C" so it repeats the loop with the same letter and processes the pushed character.
@@ -181,7 +193,7 @@ void stroke(string str, char (**dbuffer)[MAX_SIZE], size_t *counter, size_t *cap
             //size = strlen(str); // changes size so the loop doesn't acess NULL data in the new string.
             continue;
         }
-        if(str[c] == '\\' && c + 1 < size && is_string){
+        if(str[c] == '\\' && c + 1 < size && is_string && !no_escape){
             // switch (expression)
             // {
             // case constant expression:
@@ -205,7 +217,7 @@ void stroke(string str, char (**dbuffer)[MAX_SIZE], size_t *counter, size_t *cap
                 
                 default:
                     valid_escape = false;
-            }
+            } 
             if(!valid_escape){
                 printf("[ERR]: Escape not valid: \"\\%c\"", str[c + 1]);
                 continue;
@@ -286,8 +298,14 @@ void ceul_loop(size_t argc, string argv[], size_t place, token commands[], size_
         return;
     }
 
+    if(step < 0){
+        start -= 1;
+    }else{
+        start += 1;
+    }
+
     for (long i = start; (step > 0 && i <= end) || (step < 0 && i >= end); i += step){
-        if(iterations >= 50){
+        if(iterations >= 200){
             printf("[WARN]: Loop blocked by maximum 50 iterations\n");
             break;
         }
@@ -298,6 +316,94 @@ void ceul_loop(size_t argc, string argv[], size_t place, token commands[], size_
 
 void ceul_sleep(size_t, string argv[], size_t place, token[], size_t){
     sleep_ms(strtoul(argv[place + 1], NULL, 10));
+}
+
+void ceul_file(size_t, string argv[], size_t place, token commands[], size_t command_count){
+    FILE* file = fopen(argv[place + 1], "r");
+    if(file == NULL){
+        fprintf(stderr, "[IERR]: File not found");
+        return;
+    }
+
+    FILE* bfile = fopen(argv[place + 1], "rb");
+    if (bfile == NULL) return;
+    
+    fseek(bfile, 0, SEEK_END);
+    long size = ftell(bfile);
+    fclose(bfile);
+    if(size < 1){
+        printf("[IERR]: Empty file");
+        return;
+    }
+
+    // long lines = 1;
+    // char ch;
+    // while((ch = fgetc(file)) != EOF){
+    //     if(ch == '\n'){
+    //         lines++;
+    //     }
+    // }
+    // rewind(file);
+
+    char fcache[KB]; // Code cache; saves the written code.
+    char fbuffer[KB]; // Saves a limited amount of text data up to one kilobyte.
+
+    size_t fdbuffcap = 16;
+    char (*fdbuffer)[MAX_SIZE] = malloc(fdbuffcap * sizeof(*fdbuffer));
+    
+    if(fdbuffer == NULL){
+        fprintf(stderr,"[IERR]: Out of memory for FDBUFFER");
+        return;
+    }
+
+    size_t flbuffcap = 16;
+    string *flbuffer = malloc(flbuffcap * sizeof(*flbuffer));
+
+    while(fgets(fcache, sizeof(fcache), file) != NULL){
+        string comment = strstr(fcache, "//");
+        if(comment != NULL){
+            *comment = '\0';
+        }
+
+        strcpy(fbuffer, fcache);
+
+        size_t counter = 0;
+
+        stroke(fbuffer, &fdbuffer, &counter, &fdbuffcap);
+
+        if (counter > flbuffcap) {
+            size_t new_capacity = flbuffcap;
+
+            while (new_capacity < counter) {
+                new_capacity *= 2;
+            }
+
+            string *new_flbuffer =
+                realloc(flbuffer, new_capacity * sizeof(*flbuffer));
+
+            if (new_flbuffer == NULL) {
+                fprintf(stderr, "[IERR]: Out of memory for LBUFFER\n");
+                free(flbuffer);
+                free(fdbuffer);
+                return;
+            }
+
+            flbuffer = new_flbuffer;
+            flbuffcap = new_capacity;
+        }
+
+        dbufferToLbuffer(fdbuffer, flbuffer, counter);
+
+        if (counter <= 0) {
+            continue;
+        }
+
+        scan_commands(counter, commands, command_count, flbuffer, 0, counter);
+    }
+
+    fclose(file);
+    free(flbuffer);
+    free(fdbuffer);
 }
 
 // ---------------[main]---------------
@@ -311,21 +417,22 @@ int main(int, char*[]){
     
     if(dbuffer == NULL){
         //stfuandmakeitwork(dbuffer);
-        fprintf(stderr,"[ERR]: Out of memory for DBUFFER");
+        fprintf(stderr,"[IERR]: Out of memory for DBUFFER");
         return 1;
     }
     // TODO: "How to make dbuffer waste dynamically?"
     // TODO COMPLETE!!
 
     size_t lbuffcap = 16;
-    string *lbuffer = malloc(lbuffcap * sizeof(*lbuffer));; // almost the same as buffer, but saves only pointers up to 64 bytes. Lilbuffer
+    string *lbuffer = malloc(lbuffcap * sizeof(*lbuffer)); // almost the same as buffer, but saves only pointers up to 64 bytes. Lilbuffer
 
     token std_commands[] = {
         {"write", 1, STDFUNCTIONCALL, ceul_write},
         {"exit", 0, STDFUNCTIONCALL, ceul_close},
         {"clear", 0, STDFUNCTIONCALL,  ceul_clear},
         {"loop", 3, KEYWORD, ceul_loop},
-        {"sleep", 1, STDFUNCTIONCALL, ceul_sleep}
+        {"sleep", 1, STDFUNCTIONCALL, ceul_sleep},
+        {"file", 1, STDFUNCTIONCALL, ceul_file},
         //{"//", COMMENT, NULL},
     };
     size_t command_count = sizeof(std_commands) / sizeof(std_commands[0]);
@@ -335,7 +442,7 @@ int main(int, char*[]){
     sleep 3000 write "[####-]\r" sleep 3000 write "[#####]\n" write "Complete!"*/
 
     //do_intro(); // enable whenever you want
-    println("CEUL v0.0.3-beta\nDocumentation in README.md at:\nhttps://github.com/DaviAlmada-MensaBrasilJB/ceul \n");
+    println("CEUL v0.0.3-beta.2\nDocumentation in README.md at:\nhttps://github.com/DaviAlmada-MensaBrasilJB/ceul \n");
 
     // main loop
     while (true){
@@ -369,7 +476,7 @@ int main(int, char*[]){
                 realloc(lbuffer, new_capacity * sizeof(*lbuffer));
 
             if (new_lbuffer == NULL) {
-                fprintf(stderr, "[ERR]: Out of memory for LBUFFER\n");
+                fprintf(stderr, "[IERR]: Out of memory for LBUFFER\n");
                 free(lbuffer);
                 free(dbuffer);
                 return 1;
