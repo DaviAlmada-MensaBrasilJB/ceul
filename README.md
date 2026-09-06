@@ -69,11 +69,11 @@ Executes a command a set amount of times.
 ```
 > loop <start INT> <end INT> <step INT> <command>
 ```
-start = Starting value
-end = End limit
-step = Increment/decrement
-command = The command which should be executed
-
+start = Starting value\
+end = End limit\
+step = Increment/decrement\
+command = The command which should be executed\
+\
 INT = Integer
 #### Example:
 ```
@@ -81,9 +81,9 @@ INT = Integer
 HelloHelloHelloHelloHelloHelloHelloHelloHelloHello
 ```
 ### File
-Runs a file as code.
-
-Requires the `n` prefix before the filepath which tells CEUL not to treat backslashes as escape sequences.
+Runs a file as code.\
+\
+Requires the `n` prefix before the filepath which tells CEUL not to treat backslashes as escape sequences.\
 The prefix is also removed from the string after processing.
 #### Args:
 ```
