@@ -97,7 +97,7 @@ loop 0 100 1 write "Hello! " sleep 500
 ```
 REPL:
 ```
-> file n"C:/Users/Generic User/Documents/main.txt"
+> file n"C:\Users\Generic User\Documents\main.txt"
 Hello! Hello! Hello! Hello! Hello! Hello! Hello!...
 ```
 ## Roadmap Checklist
@@ -109,6 +109,7 @@ Hello! Hello! Hello! Hello! Hello! Hello! Hello!...
 - [x] `loop`
 - [x] `sleep`
 - [x] File reading with `file`
+- [ ] Better code documenting
 - [ ] `()` for arguments
 - [ ] Code block closing with `end`
 - [ ] Variables
@@ -122,11 +123,11 @@ Hello! Hello! Hello! Hello! Hello! Hello! Hello!...
 ## Proposed Syntax (Not implemented)
 ### Hello, world!
 ```
-from std import Terminal;
+from std import Terminal
 
 @main
 function main(int argc, char **argv): int
-    Terminal.write("Hello, world!", Terminal.out);
-    return 0;
+    Terminal::write("Hello, world!")
+    return 0
 end
 ```
